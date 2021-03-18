@@ -14,6 +14,7 @@
 
 import torch
 from models.model import JointModel
+from models.model import MyDataParallel
 from dataloader.data import get_triplet_dataloaders
 from experiments.experiment_base import ExperimentRunnerBase
 import torch.nn.functional as F
@@ -64,7 +65,8 @@ class ExperimentRunnerTriplet(ExperimentRunnerBase):
         # Set the Device and Distributed Settings
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         if args.distributed and torch.cuda.is_available() and torch.cuda.device_count() > 1:
-            self.model = torch.nn.DataParallel(self.model)
+            #self.model = torch.nn.DataParallel(self.model)
+            self.model = MyDataParallel(self.model)
         self.model.to(self.device)
 
         # Define the data loaders

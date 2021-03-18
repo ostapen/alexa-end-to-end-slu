@@ -89,6 +89,16 @@ class BertNLU(nn.Module):
         return logits
 
 
+# simple fix for dataparallel that allows access to class attributes
+
+class MyDataParallel(torch.nn.DataParallel):
+    def __getattr__(self, name):
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            return getattr(self.module, name)
+
+
 class JointModel(nn.Module):
     """JointModel which combines both modalities"""
     def __init__(self, input_dim, num_layers, num_classes, encoder_dim=None, bert_pretrained=True, bert_pretrained_model_name='bert-base-cased'):
