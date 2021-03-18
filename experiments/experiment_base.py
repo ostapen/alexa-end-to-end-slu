@@ -48,6 +48,7 @@ class ExperimentRunnerBase:
         self.val_every = args.val_every
         self.model_dir = args.model_dir
         self.save_every = args.save_every
+        self.two_test_splits = False
 
     def train(self):
         # Setting the variables before starting the training
@@ -150,32 +151,39 @@ class ExperimentRunnerBase:
         all_pred_labels = []
         all_audio_embeddings = []
         all_text_embeddings = []
+        if self.two_test_splits:
+            loaders = self.test_loader
+            split_names = ['speaker-closed', 'utterance-closed']
+        else:
+            loaders = [self.test_loader]
+            split_names = ['original-test']
 
-        for batch_idx, batch in enumerate(tqdm(self.test_loader)):
-            # Get the model output and update the meters
-            output = self.compute_loss(batch)
-            avg_test_acc.update(output['correct'].cpu().numpy())
-            avg_test_loss.update([output['loss']])
+        for loader, split_name in zip(loaders, split_names):
+            for batch_idx, batch in enumerate(tqdm(loader)):
+                # Get the model output and update the meters
+                output = self.compute_loss(batch)
+                avg_test_acc.update(output['correct'].cpu().numpy())
+                avg_test_loss.update([output['loss']])
 
-            # Store the Predictions
-            all_true_labels.append(batch['label'].cpu())
-            all_pred_labels.append(output['predicted'].cpu())
-            all_audio_embeddings.append(output['model_output']['audio_embed'].cpu())
-            all_text_embeddings.append(output['model_output']['text_embed'].cpu())
+                # Store the Predictions
+                all_true_labels.append(batch['label'].cpu())
+                all_pred_labels.append(output['predicted'].cpu())
+                all_audio_embeddings.append(output['model_output']['audio_embed'].cpu())
+                all_text_embeddings.append(output['model_output']['text_embed'].cpu())
 
-        # Collect the predictions and embeddings for the full set
-        all_true_labels = torch.cat(all_true_labels).numpy()
-        all_pred_labels = torch.cat(all_pred_labels).numpy()
-        all_audio_embeddings = torch.cat(all_audio_embeddings).numpy()
-        all_text_embeddings = torch.cat(all_text_embeddings).numpy()
+            # Collect the predictions and embeddings for the full set
+            all_true_labels = torch.cat(all_true_labels).numpy()
+            all_pred_labels = torch.cat(all_pred_labels).numpy()
+            all_audio_embeddings = torch.cat(all_audio_embeddings).numpy()
+            all_text_embeddings = torch.cat(all_text_embeddings).numpy()
 
-        # Save the embeddings and plot the confusion matrix
-        np.savez_compressed('embeddings.npz',
-                            audio=all_audio_embeddings,
-                            text=all_text_embeddings,
-                            labels=all_true_labels)
-        cm = confusion_matrix(all_true_labels, all_pred_labels)
-        plot_confusion_matrix(cm, self.test_loader.dataset.labels_list(), normalize=True)
+            # Save the embeddings and plot the confusion matrix
+            np.savez_compressed('embeddings_{}.npz'.format(split_name),
+                                audio=all_audio_embeddings,
+                                text=all_text_embeddings,
+                                labels=all_true_labels)
+            cm = confusion_matrix(all_true_labels, all_pred_labels)
+            plot_confusion_matrix(cm, loader.dataset.labels_list(), normalize=True)
 
-        print('Final test acc = {:.4f}, test loss = {:.4f}'.format(avg_test_acc.get(), avg_test_loss.get()))
-        return avg_test_loss.get(), avg_test_acc.get()
+            print('{}: Final test acc = {:.4f}, test loss = {:.4f}'.format(split_name.capitalize(), avg_test_acc.get(), avg_test_loss.get()))
+            return avg_test_loss.get(), avg_test_acc.get()

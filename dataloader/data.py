@@ -79,7 +79,7 @@ def triplet_getter(self, idx):
 class BaseFluentSpeechDataset(BaseDataset):
     '''Baseclass for the Fluent Speech Commands dataset'''
     def __init__(self, data_root, split='train', intent_encoder=None, pretrained_model_name='bert-base-cased'):
-        assert split in ['train', 'test', 'valid'], 'Invalid split'
+        assert split in ['train', 'test', 'valid', 'test_spk', 'test_utt'], 'Invalid split'
 
         self.data_root = data_root
         self.df = pd.read_csv(os.path.join(self.data_root, 'data/', '{}_data.csv'.format(split)))
@@ -106,7 +106,7 @@ class BaseSnipsSLUDataset(BaseDataset):
     '''Baseclass for the Snips SLU dataset'''
     def __init__(self, data_root, split='train', intent_encoder=None, pretrained_model_name='bert-base-cased'):
 
-        assert split in ['train', 'test', 'valid'], 'Invalid split'
+        assert split in ['train', 'test', 'valid', 'test_spk', 'test_utt'], 'Invalid split'
 
         self.data_root = data_root
         self.df = pd.read_csv(os.path.join(self.data_root, 'data/', '{}_data.csv'.format(split)))
@@ -139,7 +139,7 @@ class FluentSpeechDataset(BaseFluentSpeechDataset):
 class SnipsSLUDataset(BaseSnipsSLUDataset):
     def __init__(self, data_root, split='train', pretrained_model_name='bert-base-cased'):
 
-        assert split in ['train', 'test', 'valid'], 'Invalid split'
+        assert split in ['train', 'test', 'valid', 'test_spk', 'test_utt'], 'Invalid split'
 
         self.data_root = data_root
         self.df = pd.read_csv(os.path.join(self.data_root, 'data/', '{}_data.csv'.format(split)))
@@ -317,18 +317,32 @@ def get_dataloaders(data_root, batch_size, dataset='fsc', num_workers=0, *args, 
     if dataset == 'fsc':
         train_dataset = FluentSpeechDataset(data_root, 'train', *args, **kwargs)
         val_dataset = FluentSpeechDataset(data_root, 'valid', train_dataset.intent_encoder, *args, **kwargs)
-        test_dataset = FluentSpeechDataset(data_root, 'test', train_dataset.intent_encoder, *args, **kwargs)
+        if 'utility' in data_root:
+            speaker_closed_set = FluentSpeechDataset(data_root, 'test_spk', train_dataset.intent_encoder, *args, **kwargs)
+            utterance_closed_set = FluentSpeechDataset(data_root, 'test_utt', train_dataset.intent_encoder, *args, **kwargs)
+        else:
+            test_dataset = FluentSpeechDataset(data_root, 'test', train_dataset.intent_encoder, *args, **kwargs)
     elif dataset == 'snips':
         train_dataset = SnipsSLUDataset(data_root, 'train', *args, **kwargs)
         val_dataset = SnipsSLUDataset(data_root, 'valid', *args, **kwargs)
-        test_dataset = SnipsSLUDataset(data_root, 'test', *args, **kwargs)
+
+        if 'utility' in data_root:
+            speaker_closed_set =  SnipsSLUDataset(data_root, 'test_spk', *args, **kwargs)
+            utterance_closed_set =  SnipsSLUDataset(data_root, 'test_utt', *args, **kwargs)
+        else:
+            test_dataset = SnipsSLUDataset(data_root, 'test', *args, **kwargs)
     else:
         raise ValueError('Invalid dataset')
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, collate_fn=default_collate_classifier, shuffle=True, num_workers=num_workers)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, collate_fn=default_collate_classifier, num_workers=num_workers)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, collate_fn=default_collate_classifier, num_workers=num_workers)
+    if 'utility' in data_root:
 
+        test_loader_spk = DataLoader(speaker_closed_set, batch_size=batch_size, collate_fn=default_collate_classifier, num_workers=num_workers)
+        test_loader_utt = DataLoader(utterance_closed_set, batch_size=batch_size, collate_fn=default_collate_classifier, num_workers=num_workers)
+        test_loader = (test_loader_spk, test_loader_utt)
+    else:
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, collate_fn=default_collate_classifier, num_workers=num_workers)
     return train_loader, val_loader, test_loader
 
 
@@ -366,19 +380,35 @@ def get_pairwise_dataloaders(data_root, batch_size, dataset='fsc', num_workers=0
 
 
 def get_triplet_dataloaders(data_root, batch_size, dataset='fsc', num_workers=0, *args, **kwargs):
-    if dataset == 'fsc':
+    if 'fsc' in dataset:
+
         train_dataset = FluentSpeechTripletDataset(data_root, 'train', *args, **kwargs)
         val_dataset = FluentSpeechTripletDataset(data_root, 'valid', train_dataset.intent_encoder, *args, **kwargs)
-        test_dataset = FluentSpeechTripletDataset(data_root, 'test', train_dataset.intent_encoder, *args, **kwargs)
-    elif dataset == 'snips':
+        if 'utility' in data_root:
+            speaker_closed_set = FluentSpeechTripletDataset(data_root, 'test_spk', train_dataset.intent_encoder, *args, **kwargs)
+            utterance_closed_set = FluentSpeechTripletDataset(data_root, 'test_utt', train_dataset.intent_encoder, *args, **kwargs)
+        else:
+            test_dataset = FluentSpeechTripletDataset(data_root, 'test', train_dataset.intent_encoder, *args, **kwargs)
+
+
+    elif 'snips' in dataset:
         train_dataset = SnipsSLUTripletDataset(data_root, 'train', *args, **kwargs)
         val_dataset = SnipsSLUTripletDataset(data_root, 'valid', *args, **kwargs)
-        test_dataset = SnipsSLUTripletDataset(data_root, 'test', *args, **kwargs)
+        if 'utility' in data_root:
+            speaker_closed_set = SnipsSLUTripletDataset(data_root, 'test_spk', train_dataset.intent_encoder, *args, **kwargs)
+            utterance_closed_set = SnipsSLUTripletDataset(data_root, 'test_utt', train_dataset.intent_encoder, *args, **kwargs)
+        else:
+            test_dataset = SnipsSLUTripletDataset(data_root, 'test', *args, **kwargs)
     else:
         raise ValueError("No valid dataset selected!")
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, collate_fn=default_collate_triplet, shuffle=True, num_workers=num_workers)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, collate_fn=default_collate_triplet, num_workers=num_workers)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, collate_fn=default_collate_triplet, num_workers=num_workers)
+    if 'utility' in data_root:
+        test_loader_spk = DataLoader(speaker_closed_set, batch_size=batch_size, collate_fn=default_collate_classifier, num_workers=num_workers)
+        test_loader_utt = DataLoader(utterance_closed_set, batch_size=batch_size, collate_fn=default_collate_classifier, num_workers=num_workers)
+        test_loader = (test_loader_spk, test_loader_utt)
+    else:
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, collate_fn=default_collate_triplet, num_workers=num_workers)
 
     return train_loader, val_loader, test_loader

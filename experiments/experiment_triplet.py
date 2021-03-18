@@ -28,12 +28,22 @@ class ExperimentRunnerTriplet(ExperimentRunnerBase):
         if args.dataset == 'fsc':
             data_dir = 'fluent'
             num_classes = 31
-        elif args.dataset == 'snips':
-            data_dir = 'snips_slu'
+        elif args.dataset == 'fsc_utility':
+            data_dir = 'fluent_utility'
+            num_classes = 31
+        elif args.dataset == 'fsc_utility_ngram':
+            data_dir = 'fluent_utility_ngram'
+            num_classes = 31
+        elif args.dataset == 'snips_utility':
+            data_dir = 'snips_slu_utility'
+            num_classes = 6
+        elif args.dataset == 'snips_utility_ngram':
+            data_dir = 'snips_slu_utility_ngram'
             num_classes = 6
         else:
             raise ValueError("No valid dataset selected!")
-
+        if 'utility' in data_dir:
+            self.two_test_splits = True
         # Define the joint model
         self.model = JointModel(input_dim=40,
                                 num_layers=args.num_enc_layers,
