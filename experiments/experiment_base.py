@@ -152,7 +152,7 @@ class ExperimentRunnerBase:
         all_audio_embeddings = []
         all_text_embeddings = []
         if self.two_test_splits:
-            loaders = self.test_loader
+            loaders = [l for l in self.test_loader]
             split_names = ['speaker-closed', 'utterance-closed']
         else:
             loaders = [self.test_loader]
