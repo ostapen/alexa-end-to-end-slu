@@ -25,6 +25,9 @@ class ExperimentRunnerTriplet(ExperimentRunnerBase):
         super().__init__(args)
 
         # Get the correct dataset directory
+
+
+
         if args.dataset == 'fsc':
             data_dir = 'fluent'
             num_classes = 31
@@ -42,6 +45,11 @@ class ExperimentRunnerTriplet(ExperimentRunnerBase):
             num_classes = 6
         else:
             raise ValueError("No valid dataset selected!")
+
+        if args.wavs_folder != '':
+            wavs_root = args.wavs_folder
+        else:
+            wavs_root = data_dir
         if 'utility' in data_dir:
             self.two_test_splits = True
         # Define the joint model
@@ -62,7 +70,8 @@ class ExperimentRunnerTriplet(ExperimentRunnerBase):
         # Define the data loaders
         self.train_loader, \
         self.val_loader, \
-        self.test_loader = get_triplet_dataloaders(data_root=data_dir,
+        self.test_loader = get_triplet_dataloaders(wavs_root=wavs_root,
+                                                   splits_root=data_dir,
                                                    batch_size=args.batch_size,
                                                    dataset=args.dataset,
                                                    num_workers=args.num_workers,

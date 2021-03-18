@@ -28,7 +28,7 @@ class BaseDataset(Dataset):
 
     def load_audio(self, idx):
         df_row = self.df.iloc[idx]
-        filename = os.path.join(self.data_root, df_row['path'])
+        filename = os.path.join(self.wavs_root, df_row['path'])
         waveform, sample_rate = torchaudio.load(filename)
         fbank_feats = torchaudio.compliance.kaldi.mfcc(waveform, num_ceps=40, num_mel_bins=80)
         intent = df_row['intent_label']
@@ -78,11 +78,12 @@ def triplet_getter(self, idx):
 
 class BaseFluentSpeechDataset(BaseDataset):
     '''Baseclass for the Fluent Speech Commands dataset'''
-    def __init__(self, data_root, split='train', intent_encoder=None, pretrained_model_name='bert-base-cased'):
+    def __init__(self, wavs_root, splits_root, split='train', intent_encoder=None, pretrained_model_name='bert-base-cased'):
         assert split in ['train', 'test', 'valid', 'test_spk', 'test_utt'], 'Invalid split'
 
-        self.data_root = data_root
-        self.df = pd.read_csv(os.path.join(self.data_root, 'data/', '{}_data.csv'.format(split)))
+        self.wavs_root = wavs_root
+        self.splits_root = splits_root
+        self.df = pd.read_csv(os.path.join(self.splits_root, 'data/', '{}_data.csv'.format(split)))
         self.df['intent'] = self.df[['action', 'object', 'location']].apply('-'.join, axis=1)
 
         if intent_encoder is None:
@@ -104,12 +105,13 @@ class BaseFluentSpeechDataset(BaseDataset):
 
 class BaseSnipsSLUDataset(BaseDataset):
     '''Baseclass for the Snips SLU dataset'''
-    def __init__(self, data_root, split='train', intent_encoder=None, pretrained_model_name='bert-base-cased'):
+    def __init__(self, wavs_root, splits_root, split='train', intent_encoder=None, pretrained_model_name='bert-base-cased'):
 
         assert split in ['train', 'test', 'valid', 'test_spk', 'test_utt'], 'Invalid split'
 
-        self.data_root = data_root
-        self.df = pd.read_csv(os.path.join(self.data_root, 'data/', '{}_data.csv'.format(split)))
+        self.wavs_root = wavs_root
+        self.splits_root = splits_root
+        self.df = pd.read_csv(os.path.join(self.splits_root, 'data/', '{}_data.csv'.format(split)))
         self.bert_tokenizer = BertTokenizer.from_pretrained(pretrained_model_name)
 
         self.labels_set = set(self.df['intent_label'])
@@ -119,7 +121,7 @@ class BaseSnipsSLUDataset(BaseDataset):
             self.label2idx[label] = idx
 
     def labels_list(self):
-        with open(os.path.join(self.data_root, 'data', 'intents.json'), 'r') as f:
+        with open(os.path.join(self.splits_root, 'data', 'intents.json'), 'r') as f:
             import json
             intent_label_dict = json.load(f)
             intent_labels = list(intent_label_dict.keys())
@@ -137,12 +139,13 @@ class FluentSpeechDataset(BaseFluentSpeechDataset):
 
 
 class SnipsSLUDataset(BaseSnipsSLUDataset):
-    def __init__(self, data_root, split='train', pretrained_model_name='bert-base-cased'):
+    def __init__(self, wavs_root, splits_root, split='train', pretrained_model_name='bert-base-cased'):
 
         assert split in ['train', 'test', 'valid', 'test_spk', 'test_utt'], 'Invalid split'
 
-        self.data_root = data_root
-        self.df = pd.read_csv(os.path.join(self.data_root, 'data/', '{}_data.csv'.format(split)))
+        self.splits_root = splits_root
+        self.wavs_root = wavs_root
+        self.df = pd.read_csv(os.path.join(self.splits_root, 'data/', '{}_data.csv'.format(split)))
         self.bert_tokenizer = BertTokenizer.from_pretrained(pretrained_model_name)
 
     def __len__(self):
@@ -164,12 +167,13 @@ class SnipsSLUTripletDataset(BaseSnipsSLUDataset):
 
 
 class FluentSeq2SeqDataset(BaseFluentSpeechDataset):
-    def __init__(self, data_root, split='train', vocab_json=None):
+    def __init__(self, wavs_root, splits_root, split='train', vocab_json=None):
 
         assert split in ['train', 'test', 'valid'], 'Invalid split'
 
-        self.data_root = data_root
-        self.df = pd.read_csv(os.path.join(self.data_root, 'data/', '{}_data.csv'.format(split)))
+        self.wavs_root = wavs_root
+        self.splits_root = splits_root
+        self.df = pd.read_csv(os.path.join(self.wavs_root, 'data/', '{}_data.csv'.format(split)))
         self.lang = Tokenizer()
         if vocab_json is None:
             self.lang.add_words(self.df['action'])
@@ -191,7 +195,7 @@ class FluentSeq2SeqDataset(BaseFluentSpeechDataset):
 
     def __getitem__(self, idx):
         df_row = self.df.iloc[idx]
-        filename = os.path.join(self.data_root, df_row['path'])
+        filename = os.path.join(self.wavs_root, df_row['path'])
         waveform, sample_rate = torchaudio.load(filename)
         fbank_feats = torchaudio.compliance.kaldi.mfcc(waveform, num_ceps=40, num_mel_bins=80)
         output = self.lang.tokenize([df_row['action'], df_row['object'], df_row['location']])
@@ -313,30 +317,30 @@ def default_collate_triplet(inputs):
             'encoded_text3':padded_text3, 'text_length3':text_lengths3, 'raw_text3':raw_text3}
 
 
-def get_dataloaders(data_root, batch_size, dataset='fsc', num_workers=0, *args, **kwargs):
+def get_dataloaders(wavs_root, splits_root, batch_size, dataset='fsc', num_workers=0, *args, **kwargs):
     if dataset == 'fsc':
-        train_dataset = FluentSpeechDataset(data_root, 'train', *args, **kwargs)
-        val_dataset = FluentSpeechDataset(data_root, 'valid', train_dataset.intent_encoder, *args, **kwargs)
-        if 'utility' in data_root:
-            speaker_closed_set = FluentSpeechDataset(data_root, 'test_spk', train_dataset.intent_encoder, *args, **kwargs)
-            utterance_closed_set = FluentSpeechDataset(data_root, 'test_utt', train_dataset.intent_encoder, *args, **kwargs)
+        train_dataset = FluentSpeechDataset(wavs_root, splits_root, 'train', *args, **kwargs)
+        val_dataset = FluentSpeechDataset(wavs_root, splits_root, 'valid', train_dataset.intent_encoder, *args, **kwargs)
+        if 'utility' in splits_root:
+            speaker_closed_set = FluentSpeechDataset(wavs_root, splits_root, 'test_spk', train_dataset.intent_encoder, *args, **kwargs)
+            utterance_closed_set = FluentSpeechDataset(wavs_root, splits_root, 'test_utt', train_dataset.intent_encoder, *args, **kwargs)
         else:
-            test_dataset = FluentSpeechDataset(data_root, 'test', train_dataset.intent_encoder, *args, **kwargs)
+            test_dataset = FluentSpeechDataset(wavs_root, splits_root, 'test', train_dataset.intent_encoder, *args, **kwargs)
     elif dataset == 'snips':
-        train_dataset = SnipsSLUDataset(data_root, 'train', *args, **kwargs)
-        val_dataset = SnipsSLUDataset(data_root, 'valid', *args, **kwargs)
+        train_dataset = SnipsSLUDataset(wavs_root, splits_root, 'train', *args, **kwargs)
+        val_dataset = SnipsSLUDataset(wavs_root, splits_root, 'valid', *args, **kwargs)
 
-        if 'utility' in data_root:
-            speaker_closed_set =  SnipsSLUDataset(data_root, 'test_spk', *args, **kwargs)
-            utterance_closed_set =  SnipsSLUDataset(data_root, 'test_utt', *args, **kwargs)
+        if 'utility' in splits_root:
+            speaker_closed_set =  SnipsSLUDataset(wavs_root, splits_root, 'test_spk', *args, **kwargs)
+            utterance_closed_set =  SnipsSLUDataset(wavs_root, splits_root, 'test_utt', *args, **kwargs)
         else:
-            test_dataset = SnipsSLUDataset(data_root, 'test', *args, **kwargs)
+            test_dataset = SnipsSLUDataset(wavs_root, splits_root, 'test', *args, **kwargs)
     else:
         raise ValueError('Invalid dataset')
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, collate_fn=default_collate_classifier, shuffle=True, num_workers=num_workers)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, collate_fn=default_collate_classifier, num_workers=num_workers)
-    if 'utility' in data_root:
+    if 'utility' in splits_root:
 
         test_loader_spk = DataLoader(speaker_closed_set, batch_size=batch_size, collate_fn=default_collate_classifier, num_workers=num_workers)
         test_loader_utt = DataLoader(utterance_closed_set, batch_size=batch_size, collate_fn=default_collate_classifier, num_workers=num_workers)
@@ -346,12 +350,12 @@ def get_dataloaders(data_root, batch_size, dataset='fsc', num_workers=0, *args, 
     return train_loader, val_loader, test_loader
 
 
-def get_seq2seq_dataloaders(data_root, batch_size, vocab_json=None, num_workers=0, *args, **kwargs):
-    train_dataset = FluentSeq2SeqDataset(data_root, 'train', vocab_json, *args, **kwargs)
+def get_seq2seq_dataloaders(wavs_root, splits_root, batch_size, vocab_json=None, num_workers=0, *args, **kwargs):
+    train_dataset = FluentSeq2SeqDataset(wavs_root, splits_root, 'train', vocab_json, *args, **kwargs)
     if vocab_json is None:
         vocab_json = train_dataset.vocab_json
-    val_dataset = FluentSeq2SeqDataset(data_root, 'valid', vocab_json, *args, **kwargs)
-    test_dataset = FluentSeq2SeqDataset(data_root, 'test', vocab_json, *args, **kwargs)
+    val_dataset = FluentSeq2SeqDataset(wavs_root, splits_root, 'valid', vocab_json, *args, **kwargs)
+    test_dataset = FluentSeq2SeqDataset(wavs_root, splits_root, 'test', vocab_json, *args, **kwargs)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, collate_fn=default_collate_seq2seq, shuffle=True, num_workers=num_workers)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, collate_fn=default_collate_seq2seq, num_workers=num_workers)
@@ -379,32 +383,32 @@ def get_pairwise_dataloaders(data_root, batch_size, dataset='fsc', num_workers=0
     return train_loader, val_loader, test_loader
 
 
-def get_triplet_dataloaders(data_root, batch_size, dataset='fsc', num_workers=0, *args, **kwargs):
+def get_triplet_dataloaders(wavs_root, splits_root, batch_size, dataset='fsc', num_workers=0, *args, **kwargs):
     if 'fsc' in dataset:
 
-        train_dataset = FluentSpeechTripletDataset(data_root, 'train', *args, **kwargs)
-        val_dataset = FluentSpeechTripletDataset(data_root, 'valid', train_dataset.intent_encoder, *args, **kwargs)
-        if 'utility' in data_root:
-            speaker_closed_set = FluentSpeechTripletDataset(data_root, 'test_spk', train_dataset.intent_encoder, *args, **kwargs)
-            utterance_closed_set = FluentSpeechTripletDataset(data_root, 'test_utt', train_dataset.intent_encoder, *args, **kwargs)
+        train_dataset = FluentSpeechTripletDataset(wavs_root, splits_root, 'train', *args, **kwargs)
+        val_dataset = FluentSpeechTripletDataset(wavs_root, splits_root, 'valid', train_dataset.intent_encoder, *args, **kwargs)
+        if 'utility' in splits_root:
+            speaker_closed_set = FluentSpeechTripletDataset(wavs_root, splits_root, 'test_spk', train_dataset.intent_encoder, *args, **kwargs)
+            utterance_closed_set = FluentSpeechTripletDataset(wavs_root, splits_root, 'test_utt', train_dataset.intent_encoder, *args, **kwargs)
         else:
-            test_dataset = FluentSpeechTripletDataset(data_root, 'test', train_dataset.intent_encoder, *args, **kwargs)
+            test_dataset = FluentSpeechTripletDataset(wavs_root, splits_root, 'test', train_dataset.intent_encoder, *args, **kwargs)
 
 
     elif 'snips' in dataset:
-        train_dataset = SnipsSLUTripletDataset(data_root, 'train', *args, **kwargs)
-        val_dataset = SnipsSLUTripletDataset(data_root, 'valid', *args, **kwargs)
-        if 'utility' in data_root:
-            speaker_closed_set = SnipsSLUTripletDataset(data_root, 'test_spk', train_dataset.intent_encoder, *args, **kwargs)
-            utterance_closed_set = SnipsSLUTripletDataset(data_root, 'test_utt', train_dataset.intent_encoder, *args, **kwargs)
+        train_dataset = SnipsSLUTripletDataset(wavs_root, splits_root, 'train', *args, **kwargs)
+        val_dataset = SnipsSLUTripletDataset(wavs_root, splits_root, 'valid', *args, **kwargs)
+        if 'utility' in splits_root:
+            speaker_closed_set = SnipsSLUTripletDataset(wavs_root, splits_root, 'test_spk', train_dataset.intent_encoder, *args, **kwargs)
+            utterance_closed_set = SnipsSLUTripletDataset(wavs_root, splits_root, 'test_utt', train_dataset.intent_encoder, *args, **kwargs)
         else:
-            test_dataset = SnipsSLUTripletDataset(data_root, 'test', *args, **kwargs)
+            test_dataset = SnipsSLUTripletDataset(wavs_root, splits_root, 'test', *args, **kwargs)
     else:
         raise ValueError("No valid dataset selected!")
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, collate_fn=default_collate_triplet, shuffle=True, num_workers=num_workers)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, collate_fn=default_collate_triplet, num_workers=num_workers)
-    if 'utility' in data_root:
+    if 'utility' in splits_root:
         test_loader_spk = DataLoader(speaker_closed_set, batch_size=batch_size, collate_fn=default_collate_classifier, num_workers=num_workers)
         test_loader_utt = DataLoader(utterance_closed_set, batch_size=batch_size, collate_fn=default_collate_classifier, num_workers=num_workers)
         test_loader = (test_loader_spk, test_loader_utt)

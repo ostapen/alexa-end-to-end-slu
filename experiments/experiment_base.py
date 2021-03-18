@@ -47,6 +47,8 @@ class ExperimentRunnerBase:
         self.print_every = args.print_every
         self.val_every = args.val_every
         self.model_dir = args.model_dir
+        if not os.path.exists(self.model_dir):
+            os.mkdir(self.model_dir)
         self.save_every = args.save_every
         self.two_test_splits = False
 

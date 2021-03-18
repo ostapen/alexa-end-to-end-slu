@@ -120,7 +120,7 @@ class JointModel(nn.Module):
             max_seq_len = input_text.shape[1]
             attn_mask = torch.arange(max_seq_len, device=text_lengths.device)[None,:] < text_lengths[:,None]
             attn_mask = attn_mask.long() # Convert to 0-1
-            _, text_embedding = self.bert(input_ids=input_text, attention_mask=attn_mask)
+            _, text_embedding = self.bert(input_ids=input_text, attention_mask=attn_mask)[:2]
             text_logits = self.classifier(text_embedding)
             outputs['text_embed'], outputs['text_logits'] = text_embedding, text_logits
 
@@ -132,7 +132,7 @@ class JointModel(nn.Module):
         max_seq_len = input_text.shape[1]
         attn_mask = torch.arange(max_seq_len, device=text_lengths.device)[None,:] < text_lengths[:,None]
         attn_mask = attn_mask.long() # Convert to 0-1
-        _, text_embedding = self.bert(input_ids=input_text, attention_mask=attn_mask)
+        _, text_embedding = self.bert(input_ids=input_text, attention_mask=attn_mask)[:2]
         text_logits = self.classifier(text_embedding)
         outputs['text_embed'], outputs['text_logits'] = text_embedding, text_logits
         return outputs

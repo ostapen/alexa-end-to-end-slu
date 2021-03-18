@@ -24,9 +24,12 @@ def parse():
                         help="Seed for the RNG")
 
     parser.add_argument("--dataset",
-                        choices=['fsc', 'snips'],
+                        choices=['fsc', 'snips', 'fsc_utility', 'fsc_utility_ngram', 'snips_utility', 'snips_utility_ngram'],
                         default='fsc',
                         help="The dataset to use")
+    parser.add_argument("--wavs_folder",
+                        default='',
+                        help="The path to folder with all wav files; note: expects wavs/ folder to be in this folder")
 
     parser.add_argument("--experiment",
                         default="experiments.experiment_triplet.ExperimentRunnerTriplet",
