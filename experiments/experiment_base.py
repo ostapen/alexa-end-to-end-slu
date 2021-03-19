@@ -150,11 +150,11 @@ class ExperimentRunnerBase:
 
         if self.two_test_splits:
             loaders = [l for l in self.test_loader]
+            print("two test splits.")
             split_names = ['speaker-closed', 'utterance-closed']
         else:
             loaders = [self.test_loader]
             split_names = ['original-test']
-
         for loader, split_name in zip(loaders, split_names):
             avg_test_loss = AverageMeter()
             avg_test_acc = AverageMeter()
@@ -189,4 +189,4 @@ class ExperimentRunnerBase:
             plot_confusion_matrix(cm, loader.dataset.labels_list(), normalize=True)
 
             print('{}: Final test acc = {:.4f}, test loss = {:.4f}'.format(split_name.capitalize(), avg_test_acc.get(), avg_test_loss.get()))
-            return avg_test_loss.get(), avg_test_acc.get()
+        return avg_test_loss.get(), avg_test_acc.get()

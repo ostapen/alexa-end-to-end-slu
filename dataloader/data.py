@@ -409,8 +409,8 @@ def get_triplet_dataloaders(wavs_root, splits_root, batch_size, dataset='fsc', n
     train_loader = DataLoader(train_dataset, batch_size=batch_size, collate_fn=default_collate_triplet, shuffle=True, num_workers=num_workers)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, collate_fn=default_collate_triplet, num_workers=num_workers)
     if 'utility' in splits_root:
-        test_loader_spk = DataLoader(speaker_closed_set, batch_size=batch_size, collate_fn=default_collate_classifier, num_workers=num_workers)
-        test_loader_utt = DataLoader(utterance_closed_set, batch_size=batch_size, collate_fn=default_collate_classifier, num_workers=num_workers)
+        test_loader_spk = DataLoader(speaker_closed_set, batch_size=batch_size, collate_fn=default_collate_triplet, num_workers=num_workers)
+        test_loader_utt = DataLoader(utterance_closed_set, batch_size=batch_size, collate_fn=default_collate_triplet, num_workers=num_workers)
         test_loader = (test_loader_spk, test_loader_utt)
     else:
         test_loader = DataLoader(test_dataset, batch_size=batch_size, collate_fn=default_collate_triplet, num_workers=num_workers)
