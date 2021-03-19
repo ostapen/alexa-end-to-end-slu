@@ -147,12 +147,7 @@ class ExperimentRunnerBase:
     @torch.no_grad()
     def infer(self):
         self.load_model_for_eval()
-        avg_test_loss = AverageMeter()
-        avg_test_acc = AverageMeter()
-        all_true_labels = []
-        all_pred_labels = []
-        all_audio_embeddings = []
-        all_text_embeddings = []
+
         if self.two_test_splits:
             loaders = [l for l in self.test_loader]
             split_names = ['speaker-closed', 'utterance-closed']
@@ -161,6 +156,12 @@ class ExperimentRunnerBase:
             split_names = ['original-test']
 
         for loader, split_name in zip(loaders, split_names):
+            avg_test_loss = AverageMeter()
+            avg_test_acc = AverageMeter()
+            all_true_labels = []
+            all_pred_labels = []
+            all_audio_embeddings = []
+            all_text_embeddings = []
             for batch_idx, batch in enumerate(tqdm(loader)):
                 # Get the model output and update the meters
                 output = self.compute_loss(batch)
